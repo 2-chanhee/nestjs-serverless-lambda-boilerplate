@@ -2,40 +2,83 @@ service: aws-lambda-service
 plugins:
     - serverless-plugin-typescript
     - serverless-plugin-optimize
+    - serverless-plugin-canary-deployments
+    - serverless-apigw-binary
+    - serverless-dotenv-plugin
     - serverless-offline
 
 provider:
     name: aws
     runtime: nodejs14.x
+    stage: ${opt:stage, 'dev'}
     region: ap-northeast-2
     endpointType: REGIONAL
     stackName: ${self:service}-${self:provider.stage}
     apiName: ${self:service}-${self:provider.stage}
     memorySize: 512
     timeout: 10
-    #     deploymentBucket:  # default s3 bucket
-    #     deploymentPrefix:   # default s3 folder name
-    #     environment:
+    deploymentBucket: buckek-name
+    deploymentPrefix: bucket-prefix
+    environment:
+        NODE_ENV: production
+        stage: ${self:provider.stage}
+        MYSQL_USERNAME: ${env:MYSQL_USERNAME}
+        MYSQL_PASSWORD: ${env:MYSQL_PASSWORD}
+        MYSQL_DATABASE: ${env:MYSQL_DATABASE}
+        MYSQL_HOST: ${env:MYSQL_HOST}
+        JWT_SECRET: ${env:JWT_SECRET}
+        # serverless lambda에서 AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY와 같은 변수명은 사용할 수 없어서 A_KEY 사용
+        # A_KEY: ${env:AWS_ACCESS_KEY_ID}
+        # A_S_KEY: ${env:AWS_SECRET_ACCESS_KEY}
 
+    iamManagedPolicies:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
     lambdaHashingVersion: 20201221
 
 package:
     individually: true
 
 custom:
-    cors:
-        origin: '*'
-        headers: '*'
-        allowCredentials: false
-    # deploymentSettings:
-    #     type: AllAtOnce # shifts all the traffic to the new version, useful when you only need to execute the validation hooks.
-    #     alias: ${self.custom.stage}
+    cors: # dev, prod 나눠서 custom으로 setting
+        dev:
+            origin: '*'
+            headers: '*'
+            allowCredentials: false
+        prod:
+            origins: ['https://test.co.kr', 'http://test.co.kr']
+            headers: '*'
+            allowCredentials: false
+    deploymentSettings:
+        type: AllAtOnce # shifts all the traffic to the new version, useful when you only need to execute the validation hooks.
+        alias: ${self.custom.stage}
+    # gateway에서 허용해야 할 content-type 정의 (S3 IMAGE 전송 시 사용)
+    # apigwBinary:
+    #     types: #list of mime-types
+    #         - 'image/jpeg'
+    #         - 'image/png'
+    #         - 'image/jpg'
+    #         - 'multipart/form-data'
+
+    dotenv: # .env 파일을 읽기 위함.
+        path: .env
+        include:
+            - POSTGRES_USERNAME
+            - POSTGRES_PASSWORD
+            - POSTGRES_DATABASE
+            - POSTGRES_HOST
+            - POSTGRES_PORT
+            - JWT_SECRET
+            - REGION
+            # AWS KEY 필요 시
+            # - A_KEY
+            # - A_S_KEY
 
 functions:
     App: # lambda function name
         handler: src/app/lambda.handler
+        deploymentSettings: ${self:custom.deploymentSettings}
         events:
             - http:
                   method: get
                   path: /app
-                  cors: ${self.custom.cors}
+                  cors: ${self:custom.cors.${self:provider.stage}}
