@@ -1,12 +1,5 @@
 export default () => ({
-    database: {
-        username: process.env.DATABASE_USERNAME || '',
-        password: process.env.DATABASE_PASSWORD || '',
-        database: process.env.DATABASE_DATABASE || '',
-        host: process.env.DATABASE_HOST || '',
-        port: process.env.DATABASE_PORT || ''
-    },
-    stage: process.env.stage || 'dev',
+    stage: process.env.stage || 'dev', // deploy 환경
     typeorm:
         process.env.NODE_ENV === 'test'
             ? {
@@ -17,12 +10,16 @@ export default () => ({
                   synchronize: true
               }
             : {
-                  type: 'DATABASE',
+                  type: 'mysql',
+                  port: 3306,
                   autoLoadEntities: true,
                   synchronize: false,
                   bigNumberStrings: false,
-                  ssl: {
-                      rejectUnauthorized: false
+                  // for postgresql
+                  extra: {
+                      ssl: {
+                          rejectUnauthorized: false
+                      }
                   }
               }
 });
