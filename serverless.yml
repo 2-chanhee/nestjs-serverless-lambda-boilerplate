@@ -28,8 +28,8 @@ provider:
         MYSQL_HOST: ${env:MYSQL_HOST}
         JWT_SECRET: ${env:JWT_SECRET}
         # serverless lambda에서 AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY와 같은 변수명은 사용할 수 없어서 A_KEY 사용
-        # A_KEY: ${env:AWS_ACCESS_KEY_ID}
-        # A_S_KEY: ${env:AWS_SECRET_ACCESS_KEY}
+        A_KEY: ${env:AWS_ACCESS_KEY_ID}
+        A_S_KEY: ${env:AWS_SECRET_ACCESS_KEY}
 
     iamManagedPolicies:
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
@@ -52,12 +52,12 @@ custom:
         type: AllAtOnce # shifts all the traffic to the new version, useful when you only need to execute the validation hooks.
         alias: ${self.custom.stage}
     # gateway에서 허용해야 할 content-type 정의 (S3 IMAGE 전송 시 사용)
-    # apigwBinary:
-    #     types: #list of mime-types
-    #         - 'image/jpeg'
-    #         - 'image/png'
-    #         - 'image/jpg'
-    #         - 'multipart/form-data'
+    apigwBinary:
+        types: #list of mime-types
+            - 'image/jpeg'
+            - 'image/png'
+            - 'image/jpg'
+            - 'multipart/form-data'
 
     dotenv: # .env 파일을 읽기 위함.
         path: .env
@@ -70,8 +70,8 @@ custom:
             - JWT_SECRET
             - REGION
             # AWS KEY 필요 시
-            # - A_KEY
-            # - A_S_KEY
+            - A_KEY
+            - A_S_KEY
 
 functions:
     App: # lambda function name

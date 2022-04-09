@@ -1,0 +1,139 @@
+name: API Push and Deploy
+
+on:
+    push:
+        branches:
+            - master
+            - dev
+
+jobs:
+    Build_Deploy:
+        runs-on: ubuntu-20.04
+        steps:
+            - name: Checkout Branch
+              uses: actions/checkout@v2
+
+            - name: Create .env file - DEV
+              if: github.ref == 'refs/heads/dev'
+              run: |
+                  echo POSTGRES_USERNAME=${{ secrets.POSTGRES_USERNAME_DEV }} >> .env
+                  echo POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_DEV }} >> .env
+                  echo POSTGRES_DATABASE=${{ secrets.POSTGRES_DATABASE_DEV }} >> .env
+                  echo POSTGRES_PORT=${{ secrets.POSTGRES_PORT }} >> .env
+                  echo JWT_SECRET=${{ secrets.JWT_SECRET }} >> .env
+                  echo REGION=${{ secrets.REGION }} >> .env
+                  # A_KEY, A_S_KEY: serverless.yml에서 env파일 읽어올 때 AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY가 lambda에서 사용할 수 없는 변수명이기 때문에 다른 변수명 사용
+                  echo A_KEY=${{ secrets.AWS_ACCESS_KEY_ID }} >> .env
+                  echo A_S_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} >> .env
+                  cat .env
+            - name: Create .env host - DEV
+              if: github.ref == 'refs/heads/dev'
+              run: |
+                  echo POSTGRES_HOST=${{ secrets.POSTGRES_HOST_DEV }} >> .env
+                  cat .env
+
+            - name: Create .env file - PROD
+              if: github.ref == 'refs/heads/master'
+              run: |
+                  echo POSTGRES_USERNAME=${{ secrets.POSTGRES_USERNAME_PROD }} >> .env
+                  echo POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_PROD }} >> .env
+                  echo POSTGRES_DATABASE=${{ secrets.POSTGRES_DATABASE_PROD }} >> .env
+                  echo POSTGRES_PORT=${{ secrets.POSTGRES_PORT }} >> .env
+                  echo JWT_SECRET=${{ secrets.JWT_SECRET }} >> .env
+                  echo REGION=${{ secrets.REGION }} >> .env
+                  echo A_KEY=${{ secrets.AWS_ACCESS_KEY_ID }} >> .env
+                  echo A_S_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} >> .env
+                  cat .env
+            - name: Create .env host - PROD
+              if: github.ref == 'refs/heads/master'
+              run: |
+                  echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST_PROD }}" >> .env
+                  cat .env
+
+            - name: Inject slug/short variables
+              uses: rlespinasse/github-slug-action@v3.x
+
+            - name: Slack Notification on Start
+              uses: tokorom/action-slack-incoming-webhook@main
+              env:
+                  INCOMING_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+              with:
+                  text: '*<${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }}|MySpot API Deploy Started::${{ env.GITHUB_REF_SLUG }}>*'
+                  attachments: |
+                      [
+                        {
+                          "title": "배포가 시작되었습니다.",
+                          "author_name": "${{ github.actor }}",
+                          "author_icon": "${{ github.event.sender.avatar_url }}"
+                        }
+                      ]
+            - name: Install NodeJS
+              uses: actions/setup-node@v1
+              with:
+                  node-version: 14
+                  registry-url: 'https://npm.pkg.github.com'
+
+            - name: Cache node_modules
+              uses: actions/cache@v1
+              with:
+                  path: node_modules
+                  key: ${{ runner.OS }}-build-${{ hashFiles('**/yarn.lock') }}
+                  restore-keys: |
+                      ${{ runner.OS }}-build-
+                      ${{ runner.OS }}-
+            - name: Install Packages
+              run: yarn install
+
+            - name: Build and Deploy - DEV
+              if: github.ref == 'refs/heads/dev'
+              env:
+                  CI: false
+                  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  NODE_AUTH_TOKEN: ${{ secrets.GIT_AUTH_TOKEN }} # NODE_AUTH_TOKEN: publish할 때 필요한 auth_token
+
+              run: |
+                  yarn deploy:dev
+
+            - name: Build and Deploy - PROD
+              if: github.ref == 'refs/heads/master'
+              env:
+                  CI: false
+                  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  NODE_AUTH_TOKEN: ${{ secrets.GIT_AUTH_TOKEN }}
+              run: |
+                  yarn deploy:prod
+
+            - name: Slack Notification on SUCCESS
+              if: ${{ success() }}
+              uses: tokorom/action-slack-incoming-webhook@main
+              env:
+                  INCOMING_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+              with:
+                  text: '*<${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }}|MySpot API Deploy Succeed::${{ env.GITHUB_REF_SLUG }}>*'
+                  attachments: |
+                      [
+                        {
+                          "title": "배포가 완료되었습니다.",
+                          "color": "good",
+                          "author_name": "${{ github.actor }}",
+                          "author_icon": "${{ github.event.sender.avatar_url }}"
+                        }
+                      ]
+            - name: Slack Notification on Failure
+              if: ${{ failure() }}
+              uses: tokorom/action-slack-incoming-webhook@main
+              env:
+                  INCOMING_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+              with:
+                  text: '*<${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }}|MySpot API Deploy Failure::${{ env.GITHUB_REF_SLUG }}>*'
+                  attachments: |
+                      [
+                        {
+                          "title": "배포가 실패하였습니다.",
+                          "color": "danger",
+                          "author_name": "${{ github.actor }}",
+                          "author_icon": "${{ github.event.sender.avatar_url }}"
+                        }
+                      ]
