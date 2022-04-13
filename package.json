@@ -19,7 +19,8 @@
         "test:cov": "jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
         "test:e2e": "jest --config ./test/jest-e2e.json",
-        "deploy:dev": "cross-env SLS_DEBUG=* serverless deploy -v --stage dev"
+        "deploy:dev": "cross-env SLS_DEBUG=* serverless deploy -v --stage dev",
+        "deploy:prod": "cross-env SLS_DEBUG=* serverless deploy -v --stage prod && yarn build && yarn publish --new-version $npm_package_version"
     },
     "dependencies": {
         "@nestjs/common": "^8.0.0",
