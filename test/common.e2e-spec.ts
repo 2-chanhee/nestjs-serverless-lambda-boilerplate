@@ -5,7 +5,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 
 import { CommonModule } from './../src/common/common.module';
-import { CommonController } from '../src/common/common.controller';
 import { CommonService } from '../src/common/common.service';
 import configuration from '../src/configuration';
 
@@ -21,26 +20,26 @@ describe('CommonController (e2e)', () => {
                     cache: true,
                     isGlobal: true
                 }),
-                // TypeOrmModule.forRoot({
-                //     type: 'sqlite',
-                //     database: ':memory:',
-                //     autoLoadEntities: true,
-                //     synchronize: true,
-                //     logging: false
-                // }),
+                TypeOrmModule.forRoot({
+                    type: 'sqlite',
+                    database: ':memory:',
+                    autoLoadEntities: true,
+                    synchronize: true,
+                    logging: false
+                }),
                 CommonModule
             ]
         }).compile();
 
         app = moduleFixture.createNestApplication();
-        // app.useGlobalPipes(
-        //     new ValidationPipe({
-        //         whitelist: true,
-        //         transform: true,
-        //         transformOptions: { enableImplicitConversion: true },
-        //         disableErrorMessages: false
-        //     })
-        // );
+        app.useGlobalPipes(
+            new ValidationPipe({
+                whitelist: true,
+                transform: true,
+                transformOptions: { enableImplicitConversion: true },
+                disableErrorMessages: false
+            })
+        );
         await app.init();
 
         commonService = app.get(CommonService);

@@ -32,8 +32,8 @@ describe('CommonController', () => {
     });
 
     describe('GET /common/status', () => {
-        it('should return "healthy"', async () => {
-            const result = await commonController.getServerStatus();
+        it('should return "healthy"', () => {
+            const result = commonController.getServerStatus();
 
             expect(result).toBeDefined();
             expect(result).toEqual('healthy');
